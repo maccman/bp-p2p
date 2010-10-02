@@ -1,7 +1,7 @@
 require "socket"
 
 module P2P
-  module AsyncSocket
+  module SocketAsync
     def self.included(base)
       base.send :include, Events
     end
@@ -11,7 +11,7 @@ module P2P
         write_queue.push(buffer)
       end
     end
-    
+        
     def notify_readable
       trigger(:data, read_nonblock(1024))
     rescue EOFError
@@ -35,5 +35,5 @@ module P2P
   end
   
   # Patch Async into Socket
-  Socket.send(:include, AsyncSocket)
+  Socket.send(:include, SocketAsync)
 end

@@ -3,19 +3,19 @@ require "socket"
 Socket.do_not_reverse_lookup = true
 
 module P2P
-  class P2PSocket < Socket
+  class SocketP2P < Socket
     def initialize
       super(AF_INET, SOCK_STREAM, 0)
       
       # Re-use address and port if at all possible.
-      # Usually, TCP doesn't let you do this, 
-      # for security reasons.
+      # Usually, TCP doesn't want you to do this, 
+      # but we often need to rebind to addresses
       setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
       if defined?(SO_REUSEPORT)
         setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
       end
       
-      # Needed for Windows support
+      # Needed for Win32 support
       binmode
     end
     
@@ -27,6 +27,11 @@ module P2P
     end
     
     def connect(host, port)
+      addr_remote = Socket.pack_sockaddr_in(port, host)
+      super(addr_remote)
+    end
+    
+    def connect_nonblock(host, port)
       addr_remote = Socket.pack_sockaddr_in(port, host)
       super(addr_remote)
     end

@@ -1,4 +1,6 @@
 require "thread"
+require "tempfile"
+require "pathname"
 
 Thread.abort_on_exception = true
 
@@ -13,39 +15,28 @@ module P2P
     
     def connect(trans, args)
       connection = Connection.new
-
-      cb = args["callback"]      
-      connection.on(:connnect)   {|port| cb.invoke(connection.id, "connnect", port) }
-      connection.on(:data)       {|data| cb.invoke(connection.id, "data", data) }
-      connection.on(:disconnect) {
-        cb.invoke(connection.id, "disconnect") 
-        trans.complete
-      }
+      setup_callbacks(trans, args, connection)
       
-      connection.connect(
-        args["local_port"], 
-        args["host"], 
-        args["port"]
-      )
+      Thread.new do
+        connection.connect(
+          args["local_port"], 
+          args["host"], 
+          args["port"]
+        )
+      end
     end
     
     def accept(trans, args)      
       connection = Connection.new
+      setup_callbacks(trans, args, connection)
       
-      cb = args["callback"]
-      connection.on(:connnect)   {       cb.invoke(connection.id, "connnect") }
-      connection.on(:data)       {|data| cb.invoke(connection.id, "data",   data) }
-      connection.on(:accept)     {|port| cb.invoke(connection.id, "accept", port) }
-      connection.on(:disconnect) { 
-        cb.invoke(connection.id, "disconnect") 
-        trans.complete
-      }
-      
-      connection.accept(
-        args["local_port"], 
-        args["host"], 
-        args["port"]
-      )
+      Thread.new do
+        connection.accept(
+          args["local_port"], 
+          args["host"], 
+          args["port"]
+        )
+      end
     end
     
     def disconnect(trans, args)
@@ -63,6 +54,34 @@ module P2P
       )
       trans.complete
     end
+    
+    protected
+      def setup_callbacks(trans, args, connection)
+        cb = args["callback"]
+        
+        buffer = args["buffer"] && args["buffer"].open("wb+")
+        buffer ||= Tempfile.new("p2p")
+        buffer_path = Pathname.new(buffer.path)
+        
+        connection.on(:connnect) { 
+          cb.invoke(connection.id, "connnect") 
+        }
+
+        connection.on(:data) {|data| 
+          buffer.write(data)
+          cb.invoke(connection.id, "data", data.size, buffer_path)
+        }
+
+        connection.on(:bind) {|port| 
+          cb.invoke(connection.id, "bind", port) 
+        }
+
+        connection.on(:disconnect) { 
+          buffer.close
+          cb.invoke(connection.id, "disconnect") 
+          trans.complete
+        }
+      end
   end
 end
 
@@ -76,8 +95,8 @@ end
 %w{ 
   p2p/events 
   p2p/connection 
-  p2p/async_socket
-  p2p/p2p_socket 
+  p2p/socket_async
+  p2p/socket_p2p
 }.each {|lib| bp_require(lib) }
 
 rubyCoreletDefinition = {
@@ -113,6 +132,11 @@ rubyCoreletDefinition = {
           "type" => "integer",    
           "documentation" => "Port",    
           "required" => true    
+        }, {
+          "name" => "buffer",
+          "type" => "path",    
+          "documentation" => "Buffer path",    
+          "required" => false
         }
       ]
     },
@@ -141,6 +165,11 @@ rubyCoreletDefinition = {
           "type" => "integer",    
           "documentation" => "Port",    
           "required" => true    
+        }, {
+          "name" => "buffer",
+          "type" => "path",    
+          "documentation" => "Buffer path",    
+          "required" => false
         }
       ]
     },
