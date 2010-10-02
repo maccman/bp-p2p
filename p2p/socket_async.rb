@@ -3,6 +3,9 @@ require "socket"
 module P2P
   module SocketAsync
     def self.included(base)
+      # Event types:
+      #  * data
+      #  * disconnect
       base.send :include, Events
     end
         
