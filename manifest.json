@@ -1,0 +1,14 @@
+{
+	"type": "dependent",
+	"uses": {
+		"corelet": "RubyInterpreter",
+		"version": "4"
+	},
+	"arguments": {"ScriptFile": "p2p.rb"},
+    "strings": {
+        "en": {
+            "title": "P2P",
+            "summary": "Transfer data P2P over TCP"
+        }
+    }
+}
